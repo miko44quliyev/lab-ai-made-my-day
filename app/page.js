@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { POKE_API, PAGE_SIZE } from "./lib/pokeapi";
 import PokemonCard from "./components/PokemonCard";
 import PokemonDetail from "./components/PokemonDetail";
 import Pagination from "./components/Pagination";
 import styles from "./page.module.css";
+import { POKE_API, PAGE_SIZE, fetchPokemonData } from "./lib/pokeapi";
 
 export default function Home() {
   const [pokemon, setPokemon] = useState([]);
@@ -14,7 +14,6 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch a page of Pokémon every time the page number changes.
   useEffect(() => {
     async function loadPokemon() {
       setLoading(true);
@@ -29,7 +28,13 @@ export default function Home() {
         }
 
         const data = await res.json();
-        setPokemon(data.results);
+        
+        // Secondary resolving phase: fetch full detail payloads for every grid position
+        const compositeDetailPayloads = await Promise.all(
+          data.results.map((p) => fetchPokemonData(p.url))
+        );
+        
+        setPokemon(compositeDetailPayloads);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -42,32 +47,15 @@ export default function Home() {
 
   return (
     <div className={styles.page}>
-      <header style={{ textAlign: "center", marginBottom: "32px" }}>
-        <h1 style={{ fontSize: "32px", fontWeight: 700, color: "#ef5350" }}>
-          Pokédex
-        </h1>
-        <p style={{ color: "#666", marginTop: "4px" }}>
-          Click on a Pokémon to see its details.
-        </p>
+      <header className={styles.header}>
+        <h1 className={styles.mainTitle}>Pokédex</h1>
+        <p className={styles.subtitle}>Click on a Pokémon to see its details.</p>
       </header>
 
-      {loading && (
-        <p style={{ textAlign: "center", padding: "40px" }}>Loading Pokémon…</p>
-      )}
+      {loading && <p className={styles.loading}>Loading Pokémon…</p>}
 
       {error && (
-        <div
-          style={{
-            backgroundColor: "#fdecea",
-            border: "1px solid #f5c6cb",
-            color: "#b71c1c",
-            padding: "16px",
-            borderRadius: "8px",
-            textAlign: "center",
-            maxWidth: "480px",
-            margin: "0 auto",
-          }}
-        >
+        <div className={styles.errorBox}>
           <strong>Oops! We couldn&apos;t load the Pokémon.</strong>
           <p style={{ marginTop: "4px", fontSize: "14px" }}>{error}</p>
         </div>
@@ -77,7 +65,7 @@ export default function Home() {
         <>
           <div className={styles.grid}>
             {pokemon.map((p) => (
-              <PokemonCard key={p.name} pokemon={p} onSelect={setSelected} />
+              <PokemonCard key={p.id} pokemon={p} onSelect={setSelected} />
             ))}
           </div>
 
